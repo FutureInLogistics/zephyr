@@ -10,6 +10,7 @@
 #include <zephyr/drivers/clock_control/stm32_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/counter.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/__assert.h>
 #include <soc.h>
@@ -174,6 +175,9 @@ struct can_stm32fd_config {
 	void (*config_irq)(void);
 	const struct pinctrl_dev_config *pcfg;
 	uint8_t clock_divider;
+#ifdef CONFIG_CAN_RX_TIMESTAMP
+	const struct device *timestamp_counter_dev;
+#endif
 };
 
 static inline uint16_t can_stm32fd_remap_reg(uint16_t reg)
@@ -477,6 +481,36 @@ static int can_stm32fd_init(const struct device *dev)
 
 	can_mcan_enable_configuration_change(dev);
 
+#ifdef CONFIG_CAN_RX_TIMESTAMP
+	if (stm32fd_cfg->timestamp_counter_dev == NULL) {
+		LOG_ERR("Timestamping enabled, but no 'timestamp-counter' phandle provided.");
+		return -ENODEV;
+	}
+
+	if (!device_is_ready(stm32fd_cfg->timestamp_counter_dev)) {
+		LOG_ERR("timestamp device not ready");
+		return -ENODEV;
+	}
+
+	uint32_t tscc_val = 0;
+
+	/* Set Timestamp Counter Prescaler to 0 (for a prescaler of 1) */
+	tscc_val |= FIELD_PREP(CAN_MCAN_TSCC_TCP, 0);
+
+	/* Set Timestamp Select to use the external counter with a constant time base */
+	tscc_val |= FIELD_PREP(CAN_MCAN_TSCC_TSS, 0b10);
+
+	ret = can_mcan_write_reg(dev, CAN_MCAN_TSCC, tscc_val);
+	if (ret != 0) {
+		return ret;
+	}
+
+	ret = counter_start(stm32fd_cfg->timestamp_counter_dev);
+	if (ret != 0) {
+		return ret;
+	}
+#endif /* CONFIG_CAN_RX_TIMESTAMP */
+
 	/* Setup STM32 FDCAN Global Filter Configuration register */
 	ret = can_mcan_read_reg(dev, CAN_STM32FD_RXGFC, &rxgfc);
 	if (ret != 0) {
@@ -556,6 +590,20 @@ static const struct can_mcan_ops can_stm32fd_ops = {
 	BUILD_ASSERT(CAN_MCAN_DT_INST_MRAM_TX_BUFFER_ELEMENTS(inst) == 3,	\
 		     "Tx Buffer elements must be 0");
 
+#define CAN_STM32FD_BUILD_ASSERT_TIMESTAMP(inst)                                                   \
+	IF_ENABLED(                                                                                \
+		CONFIG_CAN_RX_TIMESTAMP,                                                           \
+		(IF_ENABLED(                                                                       \
+			CONFIG_SOC_SERIES_STM32G4X,                                                \
+			(BUILD_ASSERT(DT_INST_NODE_HAS_PROP(inst, timestamp_counter),              \
+				      "FDCAN on STM32G4 requires a timestamp-counter phandle for "  \
+				      "timestamping.");                                            \
+                                                                                                   \
+			 BUILD_ASSERT(                                                             \
+				 DT_SAME_NODE(DT_INST_PHANDLE(inst, timestamp_counter),            \
+					      DT_CHILD(DT_NODELABEL(timers3), counter)),           \
+				 "FDCAN on STM32G4 must use timers3 for timestamp-counter.");))))
+
 #define CAN_STM32FD_IRQ_CFG_FUNCTION(inst)                                     \
 static void config_can_##inst##_irq(void)                                      \
 {                                                                              \
@@ -591,7 +639,10 @@ static void config_can_##inst##_irq(void)                                      \
 		.pclk_len = DT_INST_NUM_CLOCKS(inst),			\
 		.config_irq = config_can_##inst##_irq,			\
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),		\
-		.clock_divider = DT_INST_PROP_OR(inst, clk_divider, 0)  \
+		.clock_divider = DT_INST_PROP_OR(inst, clk_divider, 0),	\
+		IF_ENABLED(CONFIG_CAN_RX_TIMESTAMP,                    \
+			(.timestamp_counter_dev = DEVICE_DT_GET( \
+				    DT_INST_PHANDLE(inst, timestamp_counter))))	\
 	};								\
 									\
 	static const struct can_mcan_config can_mcan_cfg_##inst =	\
@@ -611,6 +662,7 @@ static void config_can_##inst##_irq(void)                                      \
 
 #define CAN_STM32FD_INST(inst)          \
 CAN_STM32FD_BUILD_ASSERT_MRAM_CFG(inst) \
+CAN_STM32FD_BUILD_ASSERT_TIMESTAMP(inst) \
 CAN_STM32FD_IRQ_CFG_FUNCTION(inst)      \
 CAN_STM32FD_CFG_INST(inst)              \
 CAN_STM32FD_DATA_INST(inst)             \
