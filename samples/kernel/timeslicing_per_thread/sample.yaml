@@ -1,0 +1,21 @@
+sample:
+  name: Per-Thread Time Slicing Demonstration
+  description: Demonstrates per-thread time slicing with custom callbacks
+common:
+  tags: kernel scheduling timeslicing
+  depends_on: CONFIG_SYS_CLOCK_EXISTS
+  integration_platforms:
+    - qemu_x86
+    - qemu_cortex_m3
+    - native_sim
+  harness: console
+  harness_config:
+    type: multi_line
+    regex:
+      - "Per-thread time slicing demonstration completed successfully!"
+tests:
+  sample.kernel.timeslicing_per_thread:
+    min_ram: 16
+    timeout: 30
+    extra_configs:
+      - CONFIG_TIMESLICE_PER_THREAD=y
