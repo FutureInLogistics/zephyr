@@ -42,8 +42,8 @@ static void slice_expired_callback(struct k_thread *thread, void *data)
 {
 	int thread_id = (int)(uintptr_t)data;
 	slice_expirations[thread_id]++;
-	
-	printk("  [Thread %d slice expired, count=%d]\n", 
+
+	printk("  [Thread %d slice expired, count=%d]\n",
 	       thread_id, slice_expirations[thread_id]);
 }
 
@@ -97,7 +97,7 @@ int main(void)
 	printk("Each thread has a different time slice and a callback function.\n\n");
 
 	/* Define different time slices for each thread (in ticks) */
-	int32_t slice_ticks[] = {
+	const int32_t slice_ticks[] = {
 		50,  /* Thread 0: 50 ticks */
 		100, /* Thread 1: 100 ticks */
 		150  /* Thread 2: 150 ticks */
