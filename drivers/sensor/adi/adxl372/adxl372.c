@@ -141,7 +141,11 @@ static int adxl372_set_bandwidth(const struct device *dev,
 	uint8_t mask;
 	struct adxl372_data *data = dev->data;
 
-	if (bw == ADXL372_BW_LPF_DISABLED) {
+	/* POWER_CTL LPF_DISABLE turns off the low-pass *activity detect*
+	 * filter independently of the bandwidth filter.
+	 */
+	if ((bw == ADXL372_BW_LPF_DISABLED) ||
+	    IS_ENABLED(CONFIG_ADXL372_ACTIVITY_LPF_DISABLE)) {
 		mask = ADXL372_POWER_CTL_LPF_DIS_MSK;
 	} else {
 		mask = 0U;
@@ -728,6 +732,7 @@ static int adxl372_probe(const struct device *dev)
 	}
 
 #ifdef CONFIG_ADXL372_TRIGGER
+	/* Peak detection requires linked or loop mode. */
 	data->act_proc_mode = ADXL372_LINKED,
 #else
 	data->act_proc_mode = ADXL372_LOOPED,
@@ -899,10 +904,15 @@ static int adxl372_init(const struct device *dev)
 			IS_ENABLED(CONFIG_ADXL372_REFERENCED_ACTIVITY_DETECTION_MODE),	\
 		.inactivity_th.enable = 1,						\
 		.inactivity_time = CONFIG_ADXL372_INACTIVITY_TIME,			\
-		.filter_settle = ADXL372_FILTER_SETTLE_370,				\
+		.filter_settle = IS_ENABLED(CONFIG_ADXL372_FILTER_SETTLE_16MS)		\
+					 ? ADXL372_FILTER_SETTLE_16			\
+					 : ADXL372_FILTER_SETTLE_370,			\
 		.fifo_config.fifo_mode =						\
 			DT_INST_PROP_OR(inst, fifo_mode, ADXL372_FIFO_BYPASSED),	\
-		.fifo_config.fifo_format = ADXL372_XYZ_FIFO,				\
+		.fifo_config.fifo_format =						\
+			IS_ENABLED(CONFIG_ADXL372_PEAK_DETECT_MODE)			\
+				? ADXL372_XYZ_PEAK_FIFO					\
+				: ADXL372_XYZ_FIFO,					\
 		.fifo_config.fifo_samples =						\
 			DT_INST_PROP_OR(inst, fifo_watermark, 0x80),			\
 		.op_mode = ADXL372_FULL_BW_MEASUREMENT,					\
