@@ -36,6 +36,24 @@ config ADXL372_MEASUREMENT_MODE
 
 endchoice
 
+config ADXL372_ACTIVITY_LPF_DISABLE
+	bool "Disable the low-pass activity detect filter"
+	help
+	  Sets LPF_DISABLE in the POWER_CTL register, which turns off the ~10 Hz
+	  digital low-pass filter that feeds the activity and inactivity
+	  comparators. That filter exists for low-g motion detection; it
+	  attenuates a millisecond-scale impact to nothing, so high-g impact
+	  detection needs it off. This is independent of the four-pole
+	  antialiasing filter selected by the bw devicetree property, which
+	  feeds the output data registers.
+
+config ADXL372_FILTER_SETTLE_16MS
+	bool "Use the 16 ms filter settling period"
+	help
+	  Sets FILTER_SETTLE in the POWER_CTL register for a 16 ms settling
+	  period instead of 370 ms. The datasheet recommends this when both the
+	  high-pass filter and the low-pass activity detect filter are disabled.
+
 config ADXL372_ACTIVITY_THRESHOLD
 	int "Activity threshold in mg"
 	range 0 200000
