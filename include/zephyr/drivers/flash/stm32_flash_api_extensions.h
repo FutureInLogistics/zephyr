@@ -51,6 +51,9 @@ enum stm32_ex_ops {
 	 * As an input, this operation takes a flash_stm32_ex_op_rdp with information
 	 * about desired RDP state. As an output, the status after applying changes
 	 * is returned.
+	 *
+	 * The new level is programmed into the option bytes and takes effect at
+	 * the next power-on reset, or with FLASH_STM32_EX_OP_OPTB_RELOAD.
 	 */
 	FLASH_STM32_EX_OP_RDP,
 	/**
@@ -79,8 +82,8 @@ enum stm32_ex_ops {
 	 * STM32 option bytes write.
 	 *
 	 * Write the option bytes content, in takes the new value, out is
-	 * unused. Note that the new value only takes effect after the device
-	 * is restarted.
+	 * unused. The new value takes effect at the next power-on reset, or
+	 * with FLASH_STM32_EX_OP_OPTB_RELOAD.
 	 */
 	FLASH_STM32_EX_OP_OPTB_WRITE,
 	/**

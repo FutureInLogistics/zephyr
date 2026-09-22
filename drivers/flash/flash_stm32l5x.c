@@ -292,14 +292,7 @@ int flash_stm32_option_bytes_write(const struct device *dev, uint32_t mask, uint
 	/* Make sure previous write is completed. */
 	barrier_dsync_fence_full();
 
-	rc = flash_stm32_wait_flash_idle(dev);
-	if (rc < 0) {
-		return rc;
-	}
-
-	regs->NSCR |= FLASH_NSCR_OBL_LAUNCH;
-
-	return 0;
+	return flash_stm32_wait_flash_idle(dev);
 }
 
 int flash_stm32_option_bytes_reload(const struct device *dev)
