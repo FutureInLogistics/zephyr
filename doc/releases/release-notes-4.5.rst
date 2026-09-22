@@ -63,6 +63,8 @@ New APIs and options
 
 .. zephyr-keep-sorted-start re(^\* \w)
 
+* :c:enumerator:`FLASH_STM32_EX_OP_OPTB_RELOAD`
+
 .. zephyr-keep-sorted-stop
 
 New Boards

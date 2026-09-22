@@ -83,6 +83,18 @@ enum stm32_ex_ops {
 	 * is restarted.
 	 */
 	FLASH_STM32_EX_OP_OPTB_WRITE,
+	/**
+	 * STM32 option bytes reload.
+	 *
+	 * Relaunch the option byte loader so that option bytes programmed with
+	 * FLASH_STM32_EX_OP_OPTB_WRITE or FLASH_STM32_EX_OP_RDP take effect
+	 * without waiting for a power-on reset. The loader resets the device:
+	 * on success this operation does not return. in and out are unused.
+	 *
+	 * Returns -ENOTSUP on series whose option bytes are applied without a
+	 * loader.
+	 */
+	FLASH_STM32_EX_OP_OPTB_RELOAD,
 };
 
 /**

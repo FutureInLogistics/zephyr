@@ -282,6 +282,26 @@ int flash_stm32_option_bytes_write(const struct device *dev, uint32_t mask,
 	return flash_stm32_wait_flash_idle(dev);
 }
 
+int flash_stm32_option_bytes_reload(const struct device *dev)
+{
+	FLASH_TypeDef *regs = FLASH_STM32_REGS(dev);
+	int rc;
+
+	if (regs->CR & FLASH_CR_OPTLOCK) {
+		return -EIO;
+	}
+
+	rc = flash_stm32_wait_flash_idle(dev);
+	if (rc < 0) {
+		return rc;
+	}
+
+	/* Resets the device: does not return on success. */
+	regs->CR |= FLASH_CR_OBL_LAUNCH;
+
+	return flash_stm32_wait_flash_idle(dev);
+}
+
 uint32_t flash_stm32_option_bytes_read(const struct device *dev)
 {
 	FLASH_TypeDef *regs = FLASH_STM32_REGS(dev);

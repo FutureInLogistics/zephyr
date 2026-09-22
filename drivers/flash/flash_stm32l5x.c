@@ -302,6 +302,22 @@ int flash_stm32_option_bytes_write(const struct device *dev, uint32_t mask, uint
 	return 0;
 }
 
+int flash_stm32_option_bytes_reload(const struct device *dev)
+{
+	FLASH_TypeDef *regs = FLASH_STM32_REGS(dev);
+	int rc;
+
+	rc = flash_stm32_wait_flash_idle(dev);
+	if (rc < 0) {
+		return rc;
+	}
+
+	/* Resets the device: does not return on success. */
+	regs->NSCR |= FLASH_NSCR_OBL_LAUNCH;
+
+	return 0;
+}
+
 uint8_t flash_stm32_get_rdp_level(const struct device *dev)
 {
 	FLASH_TypeDef *regs = FLASH_STM32_REGS(dev);

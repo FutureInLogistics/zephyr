@@ -365,6 +365,32 @@ int flash_stm32_ex_op(const struct device *dev, uint16_t code,
 		break;
 	}
 #endif
+#if defined(CONFIG_FLASH_STM32_OPTION_BYTES) && ( \
+		defined(CONFIG_DT_HAS_ST_STM32G0_FLASH_CONTROLLER_ENABLED) || \
+		defined(CONFIG_DT_HAS_ST_STM32G4_FLASH_CONTROLLER_ENABLED) || \
+		defined(CONFIG_DT_HAS_ST_STM32L4_FLASH_CONTROLLER_ENABLED) || \
+		defined(CONFIG_DT_HAS_ST_STM32L5_FLASH_CONTROLLER_ENABLED))
+	case FLASH_STM32_EX_OP_OPTB_RELOAD: {
+		int rv2;
+
+		rv = flash_stm32_option_bytes_lock(dev, false);
+		if (rv > 0) {
+			break;
+		}
+
+		rv2 = flash_stm32_option_bytes_reload(dev);
+		/* only reached on failure: the loader resets the device */
+
+		rv = flash_stm32_option_bytes_lock(dev, true);
+		if (rv > 0) {
+			break;
+		}
+
+		rv = rv2;
+
+		break;
+	}
+#endif
 	}
 
 	flash_stm32_sem_give(dev);

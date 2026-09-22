@@ -356,6 +356,8 @@ uint32_t flash_stm32_option_bytes_read(const struct device *dev);
 int flash_stm32_option_bytes_write(const struct device *dev, uint32_t mask,
 				   uint32_t value);
 
+int flash_stm32_option_bytes_reload(const struct device *dev);
+
 int flash_stm32_cr_lock(const struct device *dev, bool enable);
 
 #ifdef CONFIG_SOC_SERIES_STM32WBX
