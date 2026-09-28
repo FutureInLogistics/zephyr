@@ -379,6 +379,13 @@ int can_mcan_stop(const struct device *dev)
 
 	can_mcan_enable_configuration_change(dev);
 
+	/*
+	 * Under the TX mutex, so that can_mcan_send() either sees the controller stopped or has
+	 * registered its callback for the loop below to abort. A frame added while the
+	 * configuration change is enabled is never transmitted, and its TX buffer would stay taken.
+	 */
+	k_mutex_lock(&data->tx_mtx, K_FOREVER);
+
 	data->common.started = false;
 
 	for (tx_idx = 0U; tx_idx < cbs->num_tx; tx_idx++) {
@@ -390,6 +397,8 @@ int can_mcan_stop(const struct device *dev)
 			k_sem_give(&data->tx_sem);
 		}
 	}
+
+	k_mutex_unlock(&data->tx_mtx);
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 	if (!can_mcan_rx_filters_exist(dev)) {
@@ -1018,6 +1027,13 @@ int can_mcan_send(const struct device *dev, const struct can_frame *frame, k_tim
 	}
 
 	k_mutex_lock(&data->tx_mtx, K_FOREVER);
+
+	if (!data->common.started) {
+		/* Stopped while waiting for a TX buffer, see can_mcan_stop() */
+		k_mutex_unlock(&data->tx_mtx);
+		k_sem_give(&data->tx_sem);
+		return -ENETDOWN;
+	}
 
 	/* Acquire a free TX buffer */
 	for (int i = 0; i < cbs->num_tx; i++) {
