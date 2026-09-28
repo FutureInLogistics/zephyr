@@ -1188,7 +1188,24 @@ static int udc_stm32_ep_dequeue(const struct device *dev,
 	struct udc_stm32_data *priv = udc_get_private(dev);
 	__maybe_unused HAL_StatusTypeDef status;
 
+	unsigned int lock_key;
+
 	LOG_DBG("Flush ep 0x%02x", ep_cfg->addr);
+
+	lock_key = irq_lock();
+
+#if defined(USB) || defined(USB_DRD_FS)
+	/*
+	 * Stop a transfer the peripheral is in the middle of, which HAL_PCD_EP_Flush() does not on
+	 * this IP. Without it an enabled endpoint stays armed with what it was given last: an IN
+	 * endpoint sends the rest of a cancelled buffer to the host with the next token, and an OUT
+	 * endpoint keeps receiving into it. A disabled endpoint is closed already.
+	 */
+	if (USB_EP_GET_IDX(ep_cfg->addr) != 0U && ep_cfg->stat.enabled && udc_ep_is_busy(ep_cfg)) {
+		status = HAL_PCD_EP_Abort(&priv->pcd, ep_cfg->addr);
+		__ASSERT_NO_MSG(status == HAL_OK);
+	}
+#endif
 
 	status = HAL_PCD_EP_Flush(&priv->pcd, ep_cfg->addr);
 	__ASSERT_NO_MSG(status == HAL_OK);
@@ -1196,6 +1213,8 @@ static int udc_stm32_ep_dequeue(const struct device *dev,
 	udc_ep_cancel_queued(dev, ep_cfg);
 
 	udc_ep_set_busy(ep_cfg, false);
+
+	irq_unlock(lock_key);
 
 	return 0;
 }
