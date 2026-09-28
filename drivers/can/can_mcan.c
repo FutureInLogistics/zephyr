@@ -379,6 +379,13 @@ int can_mcan_stop(const struct device *dev)
 
 	can_mcan_enable_configuration_change(dev);
 
+	/*
+	 * Hold the TX mutex so that can_mcan_send() either sees the controller stopped or has its
+	 * TX buffer aborted below. TXBAR is not writable while CCCR.CCE is set, so a TX buffer
+	 * added after this point would never be transmitted.
+	 */
+	k_mutex_lock(&data->tx_mtx, K_FOREVER);
+
 	data->common.started = false;
 
 	for (tx_idx = 0U; tx_idx < cbs->num_tx; tx_idx++) {
@@ -390,6 +397,8 @@ int can_mcan_stop(const struct device *dev)
 			k_sem_give(&data->tx_sem);
 		}
 	}
+
+	k_mutex_unlock(&data->tx_mtx);
 
 	k_mutex_lock(&data->lock, K_FOREVER);
 	if (!can_mcan_rx_filters_exist(dev)) {
@@ -1018,6 +1027,12 @@ int can_mcan_send(const struct device *dev, const struct can_frame *frame, k_tim
 	}
 
 	k_mutex_lock(&data->tx_mtx, K_FOREVER);
+
+	if (!data->common.started) {
+		/* Stopped while waiting for a free TX buffer */
+		err = -ENETDOWN;
+		goto err_unlock;
+	}
 
 	/* Acquire a free TX buffer */
 	for (int i = 0; i < cbs->num_tx; i++) {
